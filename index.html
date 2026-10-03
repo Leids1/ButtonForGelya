@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#36213e"> 
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <title>Для Гелюши</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            height: 100dvh;
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+            touch-action: none;
+            
+            /* Нежный, но глубокий вечерний градиент: пыльная роза + темная лаванда */
+            background: linear-gradient(-45deg, #4a2533, #2c1e36, #4d2731, #36213e);
+            background-size: 300% 300%;
+            /* Плавная, спокойная анимация на 45 секунд */
+            animation: gradientBG 45s ease-in-out infinite;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        h1 {
+            font-size: clamp(22px, 6vw, 30px);
+            font-weight: 700;
+            margin-bottom: 60px;
+            color: #ffdae0;
+            letter-spacing: 1px;
+            text-align: center;
+            opacity: 0.8;
+        }
+
+        .btn-wrapper {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #alertBtn {
+            position: relative;
+            width: 70vw;
+            max-width: 280px;
+            aspect-ratio: 1 / 1;
+            border-radius: 50%;
+            
+            background: linear-gradient(135deg, #ff758f 0%, #ffb3c6 100%);
+            color: white;
+            font-size: clamp(20px, 6vw, 26px);
+            font-weight: 800;
+            letter-spacing: 1px;
+            line-height: 1.3;
+            border: none;
+            
+            text-shadow: 1px 1px 3px rgba(150, 20, 50, 0.3);
+            box-shadow: 0 0 40px rgba(255, 117, 143, 0.2), 
+                        inset 0 6px 15px rgba(255, 255, 255, 0.4);
+            
+            cursor: pointer;
+            transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.1s ease;
+            outline: none;
+            
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        #alertBtn.active-touch {
+            transform: scale(0.92);
+            box-shadow: 0 0 20px rgba(255, 117, 143, 0.3), 
+                        inset 0 10px 25px rgba(200, 50, 80, 0.4);
+            background: linear-gradient(135deg, #f55b77 0%, #ffa5bc 100%);
+        }
+
+        #btnText {
+            display: inline-block;
+            pointer-events: none;
+        }
+
+        .ghost-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100%;
+            color: white;
+            font-weight: 800;
+            pointer-events: none;
+            
+            text-shadow: 1px 1px 3px rgba(150, 20, 50, 0.3);
+                         
+            transition: transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1), 
+                        opacity 0.8s ease-out, 
+                        filter 0.8s ease-out;
+        }
+
+        .ghost-text.fly {
+            transform: translate(-50%, -140px) scale(0.85); 
+            opacity: 0;
+            filter: blur(8px);
+        }
+
+        #sticker {
+            position: absolute;
+            top: 5%;
+            right: -5%;
+            background: #fff8fa;
+            color: #d8456b;
+            border: 2px solid #ffb3c6;
+            padding: 6px 14px;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 900;
+            transform: rotate(15deg) scale(0);
+            box-shadow: 2px 5px 15px rgba(0, 0, 0, 0.3);
+            pointer-events: none;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 10;
+        }
+
+        #sticker.visible {
+            transform: rotate(15deg) scale(1);
+        }
+
+        #sticker.bump {
+            transform: rotate(20deg) scale(1.15);
+            transition: transform 0.1s;
+        }
+
+        #status {
+            margin-top: 50px;
+            font-size: clamp(14px, 4vw, 16px);
+            height: 20px;
+            font-weight: 400;
+            color: #ffdae0;
+            opacity: 0.4;
+            text-align: center;
+            letter-spacing: 1px;
+            transition: opacity 0.3s;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Для Гелюши</h1>
+    
+    <div class="btn-wrapper">
+        <button id="alertBtn"><span id="btnText">Мне нужна<br>поддержка</span></button>
+        <div id="sticker">x0</div>
+    </div>
+    
+    <div id="status">Жду твоих нажатий...</div>
+
+    <script>
+        const btn = document.getElementById('alertBtn');
+        const btnText = document.getElementById('btnText');
+        const sticker = document.getElementById('sticker');
+        const status = document.getElementById('status');
+        
+        // ВАЖНО: Замени на свой уникальный топик
+        const NTFY_TOPIC = "secret_alert_topic_123456"; 
+
+        const phrases = [
+            "Мне нужна<br>поддержка",
+            "Котек,<br>иди сюда",
+            "Мне<br>тревожно",
+            "Обними<br>меня",
+            "Я<br>скучаю"
+        ];
+        
+        let clickCount = 0;
+        let phraseIndex = 0;
+        let statusTimeout;
+        let stickerTimeout;
+
+        btn.addEventListener('pointerdown', (e) => {
+            e.preventDefault(); 
+            
+            const ghost = document.createElement('div');
+            ghost.className = 'ghost-text';
+            ghost.innerHTML = btnText.innerHTML;
+            btn.appendChild(ghost);
+
+            requestAnimationFrame(() => {
+                ghost.classList.add('fly');
+            });
+
+            setTimeout(() => ghost.remove(), 800);
+
+            phraseIndex = (phraseIndex + 1) % phrases.length;
+            btnText.innerHTML = phrases[phraseIndex];
+
+            btnText.style.transition = 'none';
+            btnText.style.transform = 'translateY(10px)';
+            btnText.style.opacity = '0';
+
+            requestAnimationFrame(() => {
+                btnText.style.transition = 'transform 0.3s ease-out, opacity 0.3s ease-out';
+                btnText.style.transform = 'translateY(0)';
+                btnText.style.opacity = '1';
+            });
+
+            clickCount++;
+            sticker.innerHTML = `x${clickCount}`;
+            
+            if (clickCount === 1) {
+                sticker.classList.add('visible');
+            } else {
+                sticker.classList.add('bump');
+                setTimeout(() => sticker.classList.remove('bump'), 100);
+            }
+
+            clearTimeout(stickerTimeout);
+            stickerTimeout = setTimeout(() => {
+                sticker.classList.remove('visible');
+                setTimeout(() => { clickCount = 0; }, 300); 
+            }, 3000);
+
+            btn.classList.add('active-touch');
+            
+            if (navigator.vibrate) {
+                navigator.vibrate(30);
+            }
+
+            fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
+                method: 'POST',
+                body: 'VIBRATE',
+                headers: {
+                    'Title': 'Сигнал на браслет',
+                    'Priority': 'high'
+                }
+            }).catch(() => {
+                status.textContent = "Нет сети";
+            });
+
+            status.textContent = "Сигнал отправлен";
+            status.style.opacity = "0.8";
+            
+            clearTimeout(statusTimeout);
+            statusTimeout = setTimeout(() => {
+                status.style.opacity = "0.4";
+                status.textContent = "Жду твоих нажатий...";
+            }, 2500);
+        });
+
+        btn.addEventListener('pointerup', () => btn.classList.remove('active-touch'));
+        btn.addEventListener('pointercancel', () => btn.classList.remove('active-touch'));
+        btn.addEventListener('pointerleave', () => btn.classList.remove('active-touch'));
+    </script>
+</body>
+</html>
