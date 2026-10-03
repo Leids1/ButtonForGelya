@@ -30,11 +30,14 @@
             overflow: hidden;
             touch-action: none;
             
-            /* Нежный, но глубокий вечерний градиент: пыльная роза + темная лаванда */
             background: linear-gradient(-45deg, #4a2533, #2c1e36, #4d2731, #36213e);
             background-size: 300% 300%;
-            /* Плавная, спокойная анимация на 45 секунд */
             animation: gradientBG 45s ease-in-out infinite;
+            transition: background-color 0.3s;
+        }
+
+        body.pulse-red {
+            background: #4a101b !important;
         }
 
         @keyframes gradientBG {
@@ -51,6 +54,7 @@
             letter-spacing: 1px;
             text-align: center;
             opacity: 0.8;
+            transition: opacity 0.3s;
         }
 
         .btn-wrapper {
@@ -58,6 +62,23 @@
             display: flex;
             justify-content: center;
             align-items: center;
+        }
+
+        #chargeHalo {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: #ff2a4a;
+            opacity: 0;
+            transform: scale(1);
+            pointer-events: none;
+            transition: transform 3s linear, opacity 3s linear;
+        }
+
+        #chargeHalo.charging {
+            transform: scale(1.3);
+            opacity: 0.3;
         }
 
         #alertBtn {
@@ -87,6 +108,7 @@
             justify-content: center;
             align-items: center;
             text-align: center;
+            z-index: 2;
         }
 
         #alertBtn.active-touch {
@@ -99,6 +121,7 @@
         #btnText {
             display: inline-block;
             pointer-events: none;
+            will-change: transform, opacity;
         }
 
         .ghost-text {
@@ -110,12 +133,12 @@
             color: white;
             font-weight: 800;
             pointer-events: none;
-            
             text-shadow: 1px 1px 3px rgba(150, 20, 50, 0.3);
-                         
+            will-change: transform, opacity, filter;
             transition: transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1), 
                         opacity 0.8s ease-out, 
                         filter 0.8s ease-out;
+            z-index: 3;
         }
 
         .ghost-text.fly {
@@ -138,8 +161,9 @@
             transform: rotate(15deg) scale(0);
             box-shadow: 2px 5px 15px rgba(0, 0, 0, 0.3);
             pointer-events: none;
-            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.3s, color 0.3s, border-color 0.3s, box-shadow 0.3s;
             z-index: 10;
+            will-change: transform;
         }
 
         #sticker.visible {
@@ -149,6 +173,32 @@
         #sticker.bump {
             transform: rotate(20deg) scale(1.15);
             transition: transform 0.1s;
+        }
+
+        /* Комбо-цвета для стикера */
+        #sticker.combo-10 {
+            background: #e0f2f1;
+            color: #00695c;
+            border-color: #4db6ac;
+            box-shadow: 0 0 15px rgba(77, 182, 172, 0.4);
+        }
+        #sticker.combo-30 {
+            background: #e3f2fd;
+            color: #1565c0;
+            border-color: #64b5f6;
+            box-shadow: 0 0 15px rgba(100, 181, 246, 0.4);
+        }
+        #sticker.combo-50 {
+            background: #fff9e6;
+            color: #d4a017;
+            border-color: #ffda75;
+            box-shadow: 0 0 20px rgba(255, 218, 117, 0.6);
+        }
+        #sticker.combo-100 {
+            background: #f3e5f5;
+            color: #6a1b9a;
+            border-color: #ba68c8;
+            box-shadow: 0 0 25px rgba(186, 104, 200, 0.7);
         }
 
         #status {
@@ -162,6 +212,25 @@
             letter-spacing: 1px;
             transition: opacity 0.3s;
         }
+
+        .flying-heart {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 24px;
+            height: 24px;
+            pointer-events: none;
+            z-index: 1;
+            /* Базовый цвет, меняется через JS при комбо */
+            fill: #ff758f;
+            opacity: 0;
+            will-change: transform, opacity;
+        }
+
+        @keyframes explodeHeart {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
+            100% { transform: translate(var(--tx), var(--ty)) scale(1.5) rotate(var(--rot)); opacity: 0; }
+        }
     </style>
 </head>
 <body>
@@ -169,6 +238,7 @@
     <h1>Для Гелюши</h1>
     
     <div class="btn-wrapper">
+        <div id="chargeHalo"></div>
         <button id="alertBtn"><span id="btnText">Мне нужна<br>поддержка</span></button>
         <div id="sticker">x0</div>
     </div>
@@ -180,6 +250,8 @@
         const btnText = document.getElementById('btnText');
         const sticker = document.getElementById('sticker');
         const status = document.getElementById('status');
+        const chargeHalo = document.getElementById('chargeHalo');
+        const body = document.body;
         
         // ВАЖНО: Замени на свой уникальный топик
         const NTFY_TOPIC = "secret_alert_topic_123456"; 
@@ -196,80 +268,204 @@
         let phraseIndex = 0;
         let statusTimeout;
         let stickerTimeout;
+        let pressTimer;
+        let isLongPress = false;
+
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioCtx = new AudioContext();
+
+        function playBubblePop() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            const now = audioCtx.currentTime;
+            
+            // Генерируем случайную частоту для каждого пузырька (от 250 до 450 Гц)
+            const baseFreq = 250 + Math.random() * 200;
+            const peakFreq = baseFreq * 4;
+            
+            osc.frequency.setValueAtTime(baseFreq, now);
+            osc.frequency.exponentialRampToValueAtTime(peakFreq, now + 0.08);
+            
+            gainNode.gain.setValueAtTime(0, now);
+            gainNode.gain.linearRampToValueAtTime(0.5, now + 0.01);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+            
+            osc.start(now);
+            osc.stop(now + 0.1);
+        }
+
+        function playHeartbeat() {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const now = audioCtx.currentTime;
+            
+            function thump(time) {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.frequency.setValueAtTime(60, time);
+                osc.frequency.exponentialRampToValueAtTime(30, time + 0.1);
+                
+                gain.gain.setValueAtTime(0, time);
+                gain.gain.linearRampToValueAtTime(1, time + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.01, time + 0.15);
+                
+                osc.start(time);
+                osc.stop(time + 0.2);
+            }
+            thump(now);
+            thump(now + 0.25);
+        }
+
+        // В салют теперь можно передавать цвет
+        function spawnHeartsCombo(color) {
+            for(let i = 0; i < 8; i++) {
+                const heart = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+                heart.setAttribute("viewBox", "0 0 32 29.6");
+                heart.classList.add("flying-heart");
+                heart.innerHTML = '<path d="M23.6,0c-3.4,0-6.3,2.7-7.6,5.6C14.7,2.7,11.8,0,8.4,0C3.8,0,0,3.8,0,8.4c0,9.4,16,21.2,16,21.2s16-11.8,16-21.2C32,3.8,28.2,0,23.6,0z"/>';
+                
+                heart.style.fill = color; // Красим сердечки под цвет комбо
+                
+                const angle = (Math.random() * Math.PI * 2);
+                const distance = 80 + Math.random() * 60;
+                const tx = Math.cos(angle) * distance + 'px';
+                const ty = Math.sin(angle) * distance + 'px';
+                const rot = (Math.random() * 90 - 45) + 'deg';
+                
+                heart.style.setProperty('--tx', tx);
+                heart.style.setProperty('--ty', ty);
+                heart.style.setProperty('--rot', rot);
+                heart.style.animation = `explodeHeart 1s cubic-bezier(0.2, 0.8, 0.2, 1) forwards`;
+                
+                document.querySelector('.btn-wrapper').appendChild(heart);
+                setTimeout(() => heart.remove(), 1000);
+            }
+        }
+
+        function triggerHeartbeat() {
+            isLongPress = true;
+            chargeHalo.classList.remove('charging');
+            body.classList.add('pulse-red');
+            setTimeout(() => body.classList.remove('pulse-red'), 300);
+            
+            playHeartbeat();
+            if (navigator.vibrate) navigator.vibrate([100, 150, 150]);
+
+            status.textContent = "Сердцебиение отправлено!";
+            status.style.opacity = "0.9";
+            
+            fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
+                method: 'POST',
+                body: 'HEARTBEAT', 
+                headers: { 'Title': 'Стук сердца', 'Priority': 'max' }
+            }).catch(() => status.textContent = "Нет сети");
+
+            clearTimeout(statusTimeout);
+            statusTimeout = setTimeout(() => status.style.opacity = "0.4", 3000);
+        }
 
         btn.addEventListener('pointerdown', (e) => {
             e.preventDefault(); 
+            isLongPress = false;
+            
+            chargeHalo.style.transition = 'transform 3s linear, opacity 3s linear';
+            chargeHalo.classList.add('charging');
+            pressTimer = setTimeout(triggerHeartbeat, 3000);
+
+            playBubblePop();
             
             const ghost = document.createElement('div');
             ghost.className = 'ghost-text';
             ghost.innerHTML = btnText.innerHTML;
             btn.appendChild(ghost);
-
-            requestAnimationFrame(() => {
-                ghost.classList.add('fly');
-            });
-
+            void ghost.offsetWidth; 
+            ghost.classList.add('fly');
             setTimeout(() => ghost.remove(), 800);
 
             phraseIndex = (phraseIndex + 1) % phrases.length;
             btnText.innerHTML = phrases[phraseIndex];
-
             btnText.style.transition = 'none';
             btnText.style.transform = 'translateY(10px)';
             btnText.style.opacity = '0';
-
-            requestAnimationFrame(() => {
-                btnText.style.transition = 'transform 0.3s ease-out, opacity 0.3s ease-out';
-                btnText.style.transform = 'translateY(0)';
-                btnText.style.opacity = '1';
-            });
+            void btnText.offsetWidth;
+            btnText.style.transition = 'transform 0.3s ease-out, opacity 0.3s ease-out';
+            btnText.style.transform = 'translateY(0)';
+            btnText.style.opacity = '1';
 
             clickCount++;
             sticker.innerHTML = `x${clickCount}`;
             
-            if (clickCount === 1) {
-                sticker.classList.add('visible');
-            } else {
+            // Расширенная система комбо
+            if (clickCount === 10) {
+                sticker.classList.add('combo-10');
+                spawnHeartsCombo('#4db6ac'); // Мятные
+                if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
+            } else if (clickCount === 30) {
+                sticker.classList.remove('combo-10');
+                sticker.classList.add('combo-30');
+                spawnHeartsCombo('#64b5f6'); // Голубые
+                if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
+            } else if (clickCount === 50) {
+                sticker.classList.remove('combo-30');
+                sticker.classList.add('combo-50');
+                spawnHeartsCombo('#ffda75'); // Золотые
+                if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
+            } else if (clickCount === 100) {
+                sticker.classList.remove('combo-50');
+                sticker.classList.add('combo-100');
+                spawnHeartsCombo('#ba68c8'); // Фиолетовые
+                if (navigator.vibrate) navigator.vibrate([40, 40, 40, 40, 100]); // Долгая победная вибрация
+            }
+
+            if (clickCount === 1) sticker.classList.add('visible');
+            else {
                 sticker.classList.add('bump');
                 setTimeout(() => sticker.classList.remove('bump'), 100);
             }
 
             clearTimeout(stickerTimeout);
             stickerTimeout = setTimeout(() => {
-                sticker.classList.remove('visible');
+                // Очищаем все возможные классы комбо при сбросе
+                sticker.classList.remove('visible', 'combo-10', 'combo-30', 'combo-50', 'combo-100');
                 setTimeout(() => { clickCount = 0; }, 300); 
             }, 3000);
 
             btn.classList.add('active-touch');
-            
-            if (navigator.vibrate) {
-                navigator.vibrate(30);
+            // Обычная вибрация (не срабатывает во время комбо-вибрации)
+            if (navigator.vibrate && clickCount !== 10 && clickCount !== 30 && clickCount !== 50 && clickCount !== 100) {
+                navigator.vibrate(20);
             }
 
             fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
                 method: 'POST',
                 body: 'VIBRATE',
-                headers: {
-                    'Title': 'Сигнал на браслет',
-                    'Priority': 'high'
-                }
-            }).catch(() => {
-                status.textContent = "Нет сети";
-            });
+                headers: { 'Title': 'Сигнал на браслет', 'Priority': 'high' }
+            }).catch(() => status.textContent = "Нет сети");
 
             status.textContent = "Сигнал отправлен";
             status.style.opacity = "0.8";
-            
             clearTimeout(statusTimeout);
-            statusTimeout = setTimeout(() => {
-                status.style.opacity = "0.4";
-                status.textContent = "Жду твоих нажатий...";
-            }, 2500);
+            statusTimeout = setTimeout(() => status.style.opacity = "0.4", 2000);
         });
 
-        btn.addEventListener('pointerup', () => btn.classList.remove('active-touch'));
-        btn.addEventListener('pointercancel', () => btn.classList.remove('active-touch'));
-        btn.addEventListener('pointerleave', () => btn.classList.remove('active-touch'));
+        function cancelPress() {
+            btn.classList.remove('active-touch');
+            clearTimeout(pressTimer);
+            chargeHalo.style.transition = 'opacity 0.2s linear, transform 0.2s linear';
+            chargeHalo.classList.remove('charging');
+        }
+
+        btn.addEventListener('pointerup', cancelPress);
+        btn.addEventListener('pointercancel', cancelPress);
+        btn.addEventListener('pointerleave', cancelPress);
     </script>
 </body>
 </html>
