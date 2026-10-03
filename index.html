@@ -175,7 +175,6 @@
             transition: transform 0.1s;
         }
 
-        /* Комбо-цвета для стикера */
         #sticker.combo-10 {
             background: #e0f2f1;
             color: #00695c;
@@ -221,7 +220,6 @@
             height: 24px;
             pointer-events: none;
             z-index: 1;
-            /* Базовый цвет, меняется через JS при комбо */
             fill: #ff758f;
             opacity: 0;
             will-change: transform, opacity;
@@ -253,8 +251,8 @@
         const chargeHalo = document.getElementById('chargeHalo');
         const body = document.body;
         
-        // ВАЖНО: Замени на свой уникальный топик
-    const NTFY_TOPIC = "sEcReT_BuTtun_For_GElyDhA_zpymqiz";
+        // Твой секретный топик уже здесь
+        const NTFY_TOPIC = "sEcReT_BuTtun_For_GElyDhA_zpymqiz"; 
 
         const phrases = [
             "Мне нужна<br>поддержка",
@@ -284,7 +282,6 @@
             
             const now = audioCtx.currentTime;
             
-            // Генерируем случайную частоту для каждого пузырька (от 250 до 450 Гц)
             const baseFreq = 250 + Math.random() * 200;
             const peakFreq = baseFreq * 4;
             
@@ -324,7 +321,6 @@
             thump(now + 0.25);
         }
 
-        // В салют теперь можно передавать цвет
         function spawnHeartsCombo(color) {
             for(let i = 0; i < 8; i++) {
                 const heart = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -332,7 +328,7 @@
                 heart.classList.add("flying-heart");
                 heart.innerHTML = '<path d="M23.6,0c-3.4,0-6.3,2.7-7.6,5.6C14.7,2.7,11.8,0,8.4,0C3.8,0,0,3.8,0,8.4c0,9.4,16,21.2,16,21.2s16-11.8,16-21.2C32,3.8,28.2,0,23.6,0z"/>';
                 
-                heart.style.fill = color; // Красим сердечки под цвет комбо
+                heart.style.fill = color;
                 
                 const angle = (Math.random() * Math.PI * 2);
                 const distance = 80 + Math.random() * 60;
@@ -359,15 +355,18 @@
             playHeartbeat();
             if (navigator.vibrate) navigator.vibrate([100, 150, 150]);
 
+            // --- ИЗМЕНЕННЫЙ ЗАПРОС (Обход CORS через параметры в ссылке) ---
+            fetch(`https://ntfy.sh/${NTFY_TOPIC}?title=${encodeURIComponent('Стук сердца')}&priority=max`, {
+                method: 'POST',
+                body: 'HEARTBEAT'
+            }).catch((err) => {
+                console.error(err);
+                status.textContent = "Нет сети";
+            });
+
             status.textContent = "Сердцебиение отправлено!";
             status.style.opacity = "0.9";
             
-            fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
-                method: 'POST',
-                body: 'HEARTBEAT', 
-                headers: { 'Title': 'Стук сердца', 'Priority': 'max' }
-            }).catch(() => status.textContent = "Нет сети");
-
             clearTimeout(statusTimeout);
             statusTimeout = setTimeout(() => status.style.opacity = "0.4", 3000);
         }
@@ -403,26 +402,25 @@
             clickCount++;
             sticker.innerHTML = `x${clickCount}`;
             
-            // Расширенная система комбо
             if (clickCount === 10) {
                 sticker.classList.add('combo-10');
-                spawnHeartsCombo('#4db6ac'); // Мятные
+                spawnHeartsCombo('#4db6ac');
                 if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
             } else if (clickCount === 30) {
                 sticker.classList.remove('combo-10');
                 sticker.classList.add('combo-30');
-                spawnHeartsCombo('#64b5f6'); // Голубые
+                spawnHeartsCombo('#64b5f6');
                 if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
             } else if (clickCount === 50) {
                 sticker.classList.remove('combo-30');
                 sticker.classList.add('combo-50');
-                spawnHeartsCombo('#ffda75'); // Золотые
+                spawnHeartsCombo('#ffda75');
                 if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
             } else if (clickCount === 100) {
                 sticker.classList.remove('combo-50');
                 sticker.classList.add('combo-100');
-                spawnHeartsCombo('#ba68c8'); // Фиолетовые
-                if (navigator.vibrate) navigator.vibrate([40, 40, 40, 40, 100]); // Долгая победная вибрация
+                spawnHeartsCombo('#ba68c8');
+                if (navigator.vibrate) navigator.vibrate([40, 40, 40, 40, 100]);
             }
 
             if (clickCount === 1) sticker.classList.add('visible');
@@ -433,22 +431,23 @@
 
             clearTimeout(stickerTimeout);
             stickerTimeout = setTimeout(() => {
-                // Очищаем все возможные классы комбо при сбросе
                 sticker.classList.remove('visible', 'combo-10', 'combo-30', 'combo-50', 'combo-100');
                 setTimeout(() => { clickCount = 0; }, 300); 
             }, 3000);
 
             btn.classList.add('active-touch');
-            // Обычная вибрация (не срабатывает во время комбо-вибрации)
             if (navigator.vibrate && clickCount !== 10 && clickCount !== 30 && clickCount !== 50 && clickCount !== 100) {
                 navigator.vibrate(20);
             }
 
-            fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
+            // --- ИЗМЕНЕННЫЙ ЗАПРОС (Обход CORS через параметры в ссылке) ---
+            fetch(`https://ntfy.sh/${NTFY_TOPIC}?title=${encodeURIComponent('Сигнал на браслет')}&priority=high`, {
                 method: 'POST',
-                body: 'VIBRATE',
-                headers: { 'Title': 'Сигнал на браслет', 'Priority': 'high' }
-            }).catch(() => status.textContent = "Нет сети");
+                body: 'VIBRATE'
+            }).catch((err) => {
+                console.error(err);
+                status.textContent = "Нет сети";
+            });
 
             status.textContent = "Сигнал отправлен";
             status.style.opacity = "0.8";
