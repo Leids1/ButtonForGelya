@@ -212,6 +212,27 @@
             transition: opacity 0.3s;
         }
 
+        /* --- НОВЫЙ БЛОК ДЛЯ ВХОДЯЩИХ ОТВЕТОВ --- */
+        #replyBox {
+            margin-top: 20px;
+            font-size: clamp(18px, 5vw, 22px);
+            font-weight: 800;
+            color: #ffffff;
+            text-align: center;
+            opacity: 0;
+            transform: translateY(15px);
+            transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+            text-shadow: 0 0 15px rgba(255, 117, 143, 0.8);
+            z-index: 10;
+            pointer-events: none;
+            min-height: 30px;
+        }
+
+        #replyBox.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
         .flying-heart {
             position: absolute;
             top: 50%;
@@ -242,6 +263,8 @@
     </div>
     
     <div id="status">Жду твоих нажатий...</div>
+    <!-- Сюда будут прилетать ответы -->
+    <div id="replyBox"></div> 
 
     <script>
         const btn = document.getElementById('alertBtn');
@@ -249,9 +272,9 @@
         const sticker = document.getElementById('sticker');
         const status = document.getElementById('status');
         const chargeHalo = document.getElementById('chargeHalo');
+        const replyBox = document.getElementById('replyBox');
         const body = document.body;
         
-        // Твой секретный топик уже здесь
         const NTFY_TOPIC = "sEcReT_BuTtun_For_GElyDhA_zpymqiz"; 
 
         const phrases = [
@@ -268,6 +291,7 @@
         let stickerTimeout;
         let pressTimer;
         let isLongPress = false;
+        let replyTimeout;
 
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         const audioCtx = new AudioContext();
@@ -355,7 +379,6 @@
             playHeartbeat();
             if (navigator.vibrate) navigator.vibrate([100, 150, 150]);
 
-            // --- ИЗМЕНЕННЫЙ ЗАПРОС (Обход CORS через параметры в ссылке) ---
             fetch(`https://ntfy.sh/${NTFY_TOPIC}?title=${encodeURIComponent('Стук сердца')}&priority=max`, {
                 method: 'POST',
                 body: 'HEARTBEAT'
@@ -440,7 +463,6 @@
                 navigator.vibrate(20);
             }
 
-            // --- ИЗМЕНЕННЫЙ ЗАПРОС (Обход CORS через параметры в ссылке) ---
             fetch(`https://ntfy.sh/${NTFY_TOPIC}?title=${encodeURIComponent('Сигнал на браслет')}&priority=high`, {
                 method: 'POST',
                 body: 'VIBRATE'
@@ -465,6 +487,41 @@
         btn.addEventListener('pointerup', cancelPress);
         btn.addEventListener('pointercancel', cancelPress);
         btn.addEventListener('pointerleave', cancelPress);
+
+        // --- НОВЫЙ БЛОК: СЛУШАЕМ ОТВЕТЫ ОТ БРАСЛЕТА ---
+        const eventSource = new EventSource(`https://ntfy.sh/${NTFY_TOPIC}/sse`);
+        
+        eventSource.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            
+            // Если это текстовое сообщение, а не служебный пинг
+            if (data.event === 'message') {
+                const incomingText = data.message;
+                
+                // Игнорируем твои же системные сигналы VIBRATE и HEARTBEAT
+                if (incomingText !== 'VIBRATE' && incomingText !== 'HEARTBEAT') {
+                    
+                    // Показываем текст на экране
+                    replyBox.innerHTML = incomingText;
+                    replyBox.classList.add('show');
+                    
+                    // Легкая вибрация при получении ответа (если поддерживает браузер)
+                    if(navigator.vibrate) {
+                        navigator.vibrate([100, 50, 100]); 
+                    }
+                    
+                    // Прячем текст обратно через 7 секунд
+                    clearTimeout(replyTimeout);
+                    replyTimeout = setTimeout(() => {
+                        replyBox.classList.remove('show');
+                    }, 7000);
+                }
+            }
+        };
+
+        eventSource.onerror = (err) => {
+            console.log('Потеряно соединение с потоком уведомлений, переподключение...', err);
+        };
     </script>
 </body>
 </html>
